@@ -25,7 +25,7 @@ AGENT_COLOR = discord.Color(0x78FB72)
 HACKER_COLOR = discord.Color(0xDB1034)
 
 class Emotes:
-	agent = '🕵️',
+	agent = '🕵️'
 	hacker = '👨‍💻'
 	tick = '✅'
 	cross = '❎'
