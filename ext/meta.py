@@ -1,3 +1,4 @@
+from typing import List
 from discord.ext import commands
 
 from bot import Bot, Context
@@ -10,6 +11,9 @@ class MetaCog(commands.Cog, name='Meta'):
 	def _fmt_command(self, ctx: Context, cmd: commands.Command):
 		return f'`{ctx.prefix}{cmd.qualified_name}` - {cmd.help or cmd.brief or cmd.description.splitlines()[0]}'
 
+	def _fmt_commands_help(self, ctx: Context, cmds: List[commands.Command]):
+		return '\n'.join(map(lambda cmd: self._fmt_command(ctx, cmd), filter(lambda cmd: not cmd.hidden, cmds)))
+
 	@commands.group(
 		name='help',
 		description='Show help',
@@ -19,7 +23,7 @@ class MetaCog(commands.Cog, name='Meta'):
 		embed = make_base_embed(title='Help')
 		embed.add_field(
 			name='**Subcommands**',
-			value='\n'.join(map(lambda cmd: self._fmt_command(ctx, cmd), ctx.command.walk_commands())),
+			value=self._fmt_commands_help(ctx, ctx.command.walk_commands()),
 			inline=False
 		)
 
@@ -41,7 +45,7 @@ class MetaCog(commands.Cog, name='Meta'):
 		game_cog = ctx.bot.get_cog('Game')
 		await ctx.send(embed=make_base_embed(
 			title='Game Commands',
-			description='\n'.join(map(lambda cmd: self._fmt_command(ctx, cmd), game_cog.walk_commands()))
+			description=self._fmt_commands_help(ctx, game_cog.walk_commands())
 		))
 
 	# TODO(netux): make glossary command (meta, protocol)

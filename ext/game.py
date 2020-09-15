@@ -13,7 +13,7 @@ from bot import Bot, Context
 from util import emote_url, fmt_list, fmt_plural, fmt_time, get_bot_prefix, get_channel_link, wait_for_first, make_base_embed
 from lazy_search import LazyMemberConverter
 
-DEBUG = False
+DEBUG = None
 
 ACCEPT_SYNONYMS = ('accept', 'acc', 'yes', 'confirm', 'approve', 'secure')
 REJECT_SYNONYMS = ('reject', 'rej', 'refuse', 'ref', 'no', 'deny', 'disapprove', 'hack')
@@ -1076,30 +1076,32 @@ class MindnightCog(commands.Cog, name='Game'):
 			)
 		)
 
-	if DEBUG:
-		@commands.command(
-			name='debug',
-			aliases=['d'],
-			description='🤫',
-			hidden=True
-		)
-		@commands.is_owner()
-		async def mindnight__debug(self, ctx: Context, p_idx: Union[int, str], cmd: str, *args):
-			game = self.get_game_maybe(ctx)
+	@commands.command(
+		name='debug',
+		aliases=['d'],
+		description='🤫',
+		hidden=True
+	)
+	@commands.is_owner()
+	async def mindnight__debug(self, ctx: Context, p_idx: Union[int, str], cmd: str, *args):
+		if not DEBUG:
+			return
 
-			if isinstance(p_idx, str):
-				if p_idx == 'p':
-					user = game.round.proposer.user
-				else:
-					return
+		game = self.get_game_maybe(ctx)
+
+		if isinstance(p_idx, str):
+			if p_idx == 'p':
+				user = game.round.proposer.user
 			else:
-				user = game.players[p_idx].user
+				return
+		else:
+			user = game.players[p_idx].user
 
-			fake_msg = FakeMessage(1, user, f'{ctx.prefix}{cmd}' + ((' ' + ' '.join(args)) if len(args) > 0 else ''))
-			fake_msg.channel = ctx.channel
-			fake_msg._state = ctx.message._state
-			ctx2: Context = await ctx.bot.get_context(fake_msg)
-			await ctx.bot.invoke(ctx2)
+		fake_msg = FakeMessage(1, user, f'{ctx.prefix}{cmd}' + ((' ' + ' '.join(args)) if len(args) > 0 else ''))
+		fake_msg.channel = ctx.channel
+		fake_msg._state = ctx.message._state
+		ctx2: Context = await ctx.bot.get_context(fake_msg)
+		await ctx.bot.invoke(ctx2)
 
 def setup(bot: Bot):
 	def get_emotes():
@@ -1121,5 +1123,9 @@ def setup(bot: Bot):
 		bot.add_temporary_listener('ready', get_emotes)
 	else:
 		get_emotes()
+
+	if bot.config.get('debug.enabled', False):
+		global DEBUG
+		DEBUG = dict(bot.config.get('debug'))
 
 	bot.add_cog(MindnightCog())
