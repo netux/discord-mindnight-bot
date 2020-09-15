@@ -21,19 +21,21 @@ UNSET_STR = '🔷'
 UNKNOWN_STR = '?'
 VOTED_ACCEPT_STR = 'Y'
 VOTED_REJECT_STR = 'N'
-CONFIRM_EMOJI = '🆗'
-SKIP_EMOJI = '⏩'
-RANDOM_EMOJI = '🎲'
-AGENT_EMOTE = None
-HACKER_EMOTE = None
-TICK_EMOTE = None
-CROSS_EMOTE = None
-SECURE_BUTTON_EMOTE = None
-HACK_BUTTON_EMOTE = None
 AGENT_COLOR = discord.Color(0x78FB72)
 HACKER_COLOR = discord.Color(0xDB1034)
 
-# NOTE(netux): debug users to lonely testing
+class Emotes:
+	agent = '🕵️',
+	hacker = '👨‍💻'
+	tick = '✅'
+	cross = '❎'
+	secure_button = '✔'
+	hack_button = '❌'
+	confirm_button = '🆗'
+	skip_phase_button = '⏩'
+	random = '🎲'
+
+# NOTE(netux): debug users for testing in the lonelyness
 class FakeUser(discord.Object):
 	name: str = 'FakeUser'
 	nick: str = 'FakeUser'
@@ -395,14 +397,14 @@ class MindnightGame:
 						embed=self._make_return_embed(
 							description=f'You are Agent.',
 							color=AGENT_COLOR
-						).set_thumbnail(url=emote_url(AGENT_EMOTE))
+						).set_thumbnail(url=emote_url(Emotes.agent))
 					)
 				elif p.role == PlayerRole.HACKER:
 					await p.send('You are Hacker.',
 						embed=self._make_return_embed(
 							description=f'You are hacked.\nYour fellow hackers are {fmt_list(str(p2) for p2 in hackers if p2.user.id != p.user.id)}.',
 							color=HACKER_COLOR
-						).set_thumbnail(url=emote_url(HACKER_EMOTE))
+						).set_thumbnail(url=emote_url(Emotes.hacker))
 					)
 
 		self._set_phase_task(self.next_round())
@@ -418,10 +420,10 @@ class MindnightGame:
 		self.round.talking_phase()
 
 		msg = await self._send(embed=make_state_embed(self))
-		await msg.add_reaction(SKIP_EMOJI)
+		await msg.add_reaction(Emotes.skip_phase_button)
 
 		all_human_players_length = len(list(filter(lambda p: not isinstance(p.user, FakeUser), self.players)))
-		has_enough_votes_to_skip = lambda r, _: r.emoji == SKIP_EMOJI and r.count - 1 == all_human_players_length
+		has_enough_votes_to_skip = lambda r, _: r.emoji == Emotes.skip_phase_button and r.count - 1 == all_human_players_length
 
 		async def wait_for_all_votes():
 			await self._bot.wait_for('reaction_add', check=has_enough_votes_to_skip)
@@ -489,7 +491,7 @@ class MindnightGame:
 			embed=make_base_embed(
 				title='Select Phase',
 				description='**Picking a random team**'
-			).set_thumbnail(url=emote_url(RANDOM_EMOJI))
+			).set_thumbnail(url=emote_url(Emotes.random))
 		)
 		self.round.team.clear()
 		while len(self.round.team) < self.picks_for_current_node:
@@ -498,7 +500,7 @@ class MindnightGame:
 		await self.confirm_team()
 
 	async def _create_confirm_team_task_coro(self, msg: discord.Message):
-		check = lambda r, u: u.id == self.round.proposer.user.id and r.message.id == msg.id and r.emoji == CONFIRM_EMOJI
+		check = lambda r, u: u.id == self.round.proposer.user.id and r.message.id == msg.id and r.emoji == Emotes.confirm_button
 		await self._bot.wait_for('reaction_add', check=check)
 		await self.confirm_team()
 
@@ -529,7 +531,7 @@ class MindnightGame:
 		)
 		self._cancel_confirm_team_waiting_task()
 		if len(self.round.team) == self.picks_for_current_node:
-			await msg.add_reaction(CONFIRM_EMOJI)
+			await msg.add_reaction(Emotes.confirm_button)
 			self._confirm_team_waiting_task = asyncio.create_task(self._create_confirm_team_task_coro(msg))
 
 	async def skip_team_composition(self):
@@ -619,13 +621,13 @@ class MindnightGame:
 		self.round.mission_phase()
 
 		async def ask_for_action(member: TeamMember):
-			emotes = [SECURE_BUTTON_EMOTE]
+			emotes = [Emotes.secure_button]
 			terms = [ACCEPT_SYNONYMS]
-			instructions = f'React with {SECURE_BUTTON_EMOTE} to secure'
+			instructions = f'React with {Emotes.secure_button} to secure'
 			if member.player.role == PlayerRole.HACKER:
-				emotes.append(HACK_BUTTON_EMOTE)
+				emotes.append(Emotes.hack_button)
 				terms.append(REJECT_SYNONYMS)
-				instructions += f' or {HACK_BUTTON_EMOTE} to hack'
+				instructions += f' or {Emotes.hack_button} to hack'
 			instructions += ' the node.'
 			(msg, resp_emote) = await member.player.send(
 				embed=make_base_embed(
@@ -637,7 +639,7 @@ class MindnightGame:
 				),
 				reactions=dict(emotes=emotes, terms=terms, bot=self._bot)
 			)
-			member.set_hacked(resp_emote == HACK_BUTTON_EMOTE)
+			member.set_hacked(resp_emote == Emotes.hack_button)
 			await msg.edit(embed=self._make_return_embed())
 
 		async with self._typing():
@@ -668,7 +670,7 @@ class MindnightGame:
 				)),
 				color=HACKER_COLOR if self.round.node_hacked else AGENT_COLOR
 			).set_thumbnail(
-				url=emote_url(HACKER_EMOTE if self.round.node_hacked else AGENT_EMOTE)
+				url=emote_url(Emotes.hacker if self.round.node_hacked else Emotes.agent)
 			)
 		)
 
@@ -693,7 +695,7 @@ class MindnightGame:
 		hackers_win = winner == PlayerRole.HACKER
 		await self._send(
 			'\n'.join(filter(lambda s: s is not None, (
-				'Mindnight game finished, ' + ('nobody wins' if winner is None else (f'{HACKER_EMOTE} Hackers win' if hackers_win else f'{AGENT_EMOTE} Agents win')) + '.',
+				'Mindnight game finished, ' + ('nobody wins' if winner is None else (f'{Emotes.hacker} Hackers win' if hackers_win else f'{Emotes.agent} Agents win')) + '.',
 				reason,
 				('Hackers were ' + ', '.join(str(p) for p in self.players if p.role == PlayerRole.HACKER)) if prev_state.value > GameState.LOBBY.value else None
 			))),
@@ -770,8 +772,8 @@ def make_state_embed(game, *args, **kwargs):
 				embed.add_field(
 					name='Votes',
 					value='\n'.join((
-						f'{TICK_EMOTE} ' + fmt_vote_list(game.round.votes.accepted),
-						f'{CROSS_EMOTE} ' + fmt_vote_list(game.round.votes.rejected)
+						f'{Emotes.tick} ' + fmt_vote_list(game.round.votes.accepted),
+						f'{Emotes.cross} ' + fmt_vote_list(game.round.votes.rejected)
 					)),
 					inline=False
 				)
@@ -841,10 +843,12 @@ class MindnightCog(commands.Cog, name='Game'):
 			) if create_new_game else None
 		)
 
-		if DEBUG:
-			for _ in range(5 - len(game.players)):
+		if DEBUG and (player_count := DEBUG.get('player_count', None)) is not None:
+			debug_to_add = player_count - len(game.players)
+			for _ in range(debug_to_add):
 				game.add_player(FakeUser(randint(0, 10000)))
-			await ctx.reply('Added debug FakeUsers.')
+			if debug_to_add > 0:
+				await ctx.reply(f'Added {debug_to_add} debug FakeUsers.')
 
 	@commands.command(
 		name='leave',
@@ -860,9 +864,10 @@ class MindnightCog(commands.Cog, name='Game'):
 		game.remove_player(ctx.author)
 		await ctx.reply('removed from Mindnight game.')
 
-		if game.state != GameState.LOBBY or len(game.players) == 0:
+		out_of_human_players = len(list(filter(lambda p: not isinstance(p.user, FakeUser), game.players))) == 0
+		if game.state != GameState.LOBBY or out_of_human_players:
 			await game.end(
-				reason='A player left.' if game.state != GameState.LOBBY else 'All players left.'
+				reason='All players left.' if out_of_human_players else 'A player left in the middle of the game.'
 			)
 			del self.games[ctx.channel.id]
 
@@ -1053,7 +1058,7 @@ class MindnightCog(commands.Cog, name='Game'):
 			picks_for_node = game.info.get_pick_count_for_node(idx)
 			hacks_for_node = game.info.get_hacks_count_for_node(idx)
 
-			ret = UNSET_STR if node_hacked is None else str(HACKER_EMOTE if node_hacked else AGENT_EMOTE)
+			ret = UNSET_STR if node_hacked is None else str(Emotes.hacker if node_hacked else Emotes.agent)
 			ret += f' **Node {idx + 1}**'
 			ret += f' [{picks_for_node} ' + fmt_plural(picks_for_node, 'player') + '/'
 			ret += f'{hacks_for_node} ' + fmt_plural(hacks_for_node, 'hack') + ']'
@@ -1098,27 +1103,19 @@ class MindnightCog(commands.Cog, name='Game'):
 
 def setup(bot: Bot):
 	def get_emotes():
-		global AGENT_EMOTE, HACKER_EMOTE, TICK_EMOTE, CROSS_EMOTE, SECURE_BUTTON_EMOTE, HACK_BUTTON_EMOTE
-		def get_or_warn_and_default(config_name: str, default: Any):
+		for config_name in filter(lambda k: not k.startswith('_'), Emotes.__dict__.keys()):
 			id = bot.config.get('emotes.' + config_name, None)
-			if id is not None:
-				emote = discord.utils.get(bot.emojis, id=id)
-				if emote is not None:
-					return emote
-				else:
-					logging.warn(''.join((
-						f'Emote {config_name} with ID {id} not found on internal cache.',
-						' Make sure the bot belongs to the guild where the emote was added.'
-					)))
+			if id is None or not isinstance(id, int):
+				continue
 
-			return default
-
-		AGENT_EMOTE = get_or_warn_and_default('agent', '🕵️')
-		HACKER_EMOTE = get_or_warn_and_default('hacker', '👨‍💻')
-		TICK_EMOTE = get_or_warn_and_default('tick', '✅')
-		CROSS_EMOTE = get_or_warn_and_default('cross', '❎')
-		SECURE_BUTTON_EMOTE = get_or_warn_and_default('secureButton', '✔')
-		HACK_BUTTON_EMOTE = get_or_warn_and_default('hackButton', '❌')
+			emote = discord.utils.get(bot.emojis, id=id)
+			if emote is not None:
+				setattr(Emotes, config_name, emote)
+			else:
+				logging.warn(''.join((
+					f'Emote {config_name} with ID {id} not found on internal cache.',
+					' Make sure the bot belongs to the guild where the emote was added.'
+				)))
 
 	if not bot.is_ready():
 		bot.add_temporary_listener('ready', get_emotes)
