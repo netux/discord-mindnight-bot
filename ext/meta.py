@@ -1,4 +1,6 @@
 from typing import List
+
+import discord
 from discord.ext import commands
 
 from bot import Bot, Context
@@ -31,9 +33,23 @@ class MetaCog(commands.Cog, name='Meta'):
 		if support_invite is not None:
 			embed.add_field(
 				name='Support Server',
-				value=support_invite,
-				inline=False
+				value=f'[Report bugs or ask questions.]({support_invite})',
+				inline=True
 			)
+
+		bot_invite = discord.utils.oauth_url(ctx.bot.user.id,
+			permissions=discord.Permissions(
+				view_channel=True,
+				send_messages=True,
+				embed_links=True,
+				external_emojis=True
+			)
+		)
+		embed.add_field(
+			name='Bot Invite',
+			value=f'[Invite me to your server!]({bot_invite})',
+			inline=True
+		)
 		await ctx.send(embed=embed)
 
 	@mindnight__help.command(
