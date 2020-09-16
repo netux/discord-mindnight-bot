@@ -3,7 +3,7 @@ import logging
 from typing import Callable, Optional, Union
 
 import discord
-from discord.ext import commands, tasks
+from discord.ext import commands
 from pyparsing import ParseResults
 
 class ContextBase(commands.Context):

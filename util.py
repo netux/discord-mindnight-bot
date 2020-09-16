@@ -1,7 +1,7 @@
 import asyncio
 from bot import Bot
 from types import CoroutineType
-from typing import Any, Iterable, Optional, Union, List, Tuple
+from typing import Any, Iterable, Mapping, Optional, Union, List, Tuple
 
 import discord
 
@@ -10,6 +10,17 @@ def noop(*_, **__):
 
 async def async_noop(*_, **__):
 	pass
+
+def get_nested(obj: Mapping[Any, Any], *path: List[str]) -> Any:
+	for k in path:
+		obj = obj[k]
+	return obj
+
+def get_nested_or(obj: Mapping[Any, Any], *path: List[str], default: Any) -> Any:
+	try:
+		return get_nested(obj, *path)
+	except KeyError:
+		return default
 
 async def wait_in_order(*coros: Iterable[Union[CoroutineType, asyncio.Future]]):
 	results = []
