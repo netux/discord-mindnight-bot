@@ -50,17 +50,22 @@ class Bot(commands.Bot):
 		if ctx.error_was_handled:
 			return
 
-		if isinstance(ex, commands.MissingRequiredArgument):
-			await ctx.send(str(ex))
-			return
-		elif isinstance(ex, commands.NotOwner):
-			await ctx.message.add_reaction('⛔')
-			return
-		elif isinstance(ex, (commands.CommandNotFound, commands.NoPrivateMessage)):
-			return
+		try:
+			if isinstance(ex, commands.MissingRequiredArgument):
+				await ctx.send(str(ex))
+				return
+			elif isinstance(ex, commands.NotOwner):
+				await ctx.message.add_reaction('⛔')
+				return
+			elif isinstance(ex, (commands.CommandNotFound, commands.NoPrivateMessage)):
+				return
 
-		logging.exception(ex, exc_info=ex)
-		await ctx.message.add_reaction('🥴')
+			await ctx.message.add_reaction('🥴')
+		except discord.errors.DiscordException as ex2:
+			ex2.__cause__ = ex
+			ex = ex2
+		finally:
+			logging.exception(ex, exc_info=ex)
 
 	def add_temporary_listener(self, event: str, callback: Callable[..., None], *, check: Optional[Callable[..., bool]] = None, timeout: Optional[float] = None):
 		if check is None:
