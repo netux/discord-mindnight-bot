@@ -2,6 +2,7 @@ import logging
 from util import get_nested_or
 from webhook_logging import WebhookLogHandler, WebhookLogRecordFormatter
 
+from discord import AllowedMentions
 from pyhocon import ConfigFactory
 from pyparsing import ParseResults
 
@@ -78,7 +79,8 @@ if __name__ == '__main__':
 
 	bot = Bot(config,
 		command_prefix=bot_config.get('command_prefix', ('mindnight ', 'Mindnight ', 'mindnight', 'Mindnight', 'mn ', 'mn', 'Mn ', 'Mn')),
-		case_insensitive=True
+		case_insensitive=True,
+		allowed_mentions=AllowedMentions(everyone=False, roles=False)
 	)
 
 	bot.load_extension('ext.meta')
