@@ -123,3 +123,8 @@ def fmt_time(secs: float):
 		pretty_seconds = f'{int(seconds)}' + ('' if int(seconds) == seconds else f'{seconds - int(seconds):.2f}'[1:])
 		result.append(f'{pretty_seconds} ' + fmt_plural(seconds, 'second'))
 	return ' '.join(result)
+
+class PrettyRepr:
+	def __repr__(self) -> str:
+		props = ' '.join(f'{repr(k)}={repr(v)}' for (k, v) in self.__dict__.items() if k[0] != '_')
+		return f'<{self.__class__.__qualname__} {props}>'

@@ -11,7 +11,7 @@ from discord.ext import commands
 
 from bot import Bot, Context
 from lazy_search import LazyMemberConverter
-from util import emote_url, fmt_list, fmt_plural, fmt_time, get_bot_prefix, get_channel_link, make_base_embed, wait
+from util import PrettyRepr, emote_url, fmt_list, fmt_plural, fmt_time, get_bot_prefix, get_channel_link, make_base_embed, wait
 
 DEBUG = None
 
@@ -38,7 +38,7 @@ class Emotes:
 	random = '🎲'
 
 # NOTE(netux): debug users for testing in the lonelyness
-class FakeUser(discord.Object):
+class FakeUser(discord.Object, PrettyRepr):
 	name: str = 'FakeUser'
 	nick: str = 'FakeUser'
 
@@ -56,10 +56,7 @@ class FakeUser(discord.Object):
 	def __str__(self) -> str:
 		return f'FakeUser#{self.id:0>4}'
 
-	def __repr__(self) -> str:
-		return self.__str__()
-
-class FakeMessage(discord.Object):
+class FakeMessage(discord.Object, PrettyRepr):
 	author: FakeUser
 	content: str
 
@@ -105,7 +102,7 @@ class PlayerRole(Enum):
 	AGENT = auto()
 	HACKER = auto()
 
-class GamePlayer:
+class GamePlayer(PrettyRepr):
 	user: discord.User
 	role: Optional[PlayerRole]
 
@@ -146,7 +143,7 @@ class GamePlayer:
 	def __hash__(self) -> int:
 		return self.user.__hash__()
 
-class TeamMember:
+class TeamMember(PrettyRepr):
 	player: GamePlayer
 	has_hacked: bool
 
@@ -170,10 +167,9 @@ class TeamMember:
 	def __hash__(self) -> int:
 		return self.player.__hash__()
 
-class MindnightRound:
-	RoundVotes = namedtuple('RoundVotes', ('accepted', 'rejected'))
+RoundVotes = namedtuple('RoundVotes', ('accepted', 'rejected'))
 
-
+class MindnightRound(PrettyRepr):
 	phase: RoundPhase = None
 	proposer: GamePlayer = None
 	team: Set[TeamMember] = None
@@ -211,7 +207,7 @@ class MindnightRound:
 
 	def voting_phase(self):
 		self.phase = RoundPhase.VOTING
-		self.votes = self.RoundVotes(set(), set())
+		self.votes = RoundVotes(set(), set())
 
 	def increase_voting_attempts(self):
 		self._voting_attempts += 1
@@ -264,7 +260,7 @@ MIN_PLAYER_COUNT = min(INFO.keys())
 MAX_PLAYER_COUNT = max(INFO.keys())
 MAX_VOTING_ATTEMPTS = 5
 
-class MindnightGame:
+class MindnightGame(PrettyRepr):
 	channel: discord.TextChannel
 	players: List[GamePlayer]
 	nodes_hacked: List[bool]
@@ -319,8 +315,7 @@ class MindnightGame:
 			pass
 		else:
 			if ex is not None:
-				logger.exception(ex, exc_info=ex)
-				asyncio.create_task(self._abrupt_end())
+				asyncio.create_task(self._abrupt_end(exc_info=ex))
 
 	def _set_phase_task(self, coro: Coroutine):
 		if self._phase_task is not None and not self._phase_task.done():
@@ -399,8 +394,7 @@ class MindnightGame:
 							).set_thumbnail(url=emote_url(Emotes.hacker))
 						)
 		except Exception as ex:
-			logger.exception(ex, exc_info=ex)
-			await self._abrupt_end()
+			await self._abrupt_end(exc_info=ex)
 		else:
 			self._set_phase_task(self.next_round())
 
@@ -703,9 +697,12 @@ class MindnightGame:
 			embed=make_state_embed(self, color=AGENT_COLOR if hackers_win else HACKER_COLOR)
 		)
 
-	async def _abrupt_end(self):
+	async def _abrupt_end(self, *, exc_info: Exception = None):
+		if exc_info is not None:
+			logger.exception(f'Abruptly ended game {self}', exc_info=exc_info)
+
 		try:
-			await self._send('Game closed due to unexpected error.')
+			await self._send('Game ended due to unexpected error.')
 		except Exception:
 			pass
 
