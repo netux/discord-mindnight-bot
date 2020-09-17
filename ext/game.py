@@ -27,7 +27,7 @@ HACKER_COLOR = discord.Color(0xDB1034)
 logger = logging.getLogger('game')
 
 class Emotes:
-	agent = '🕵️'
+	agent = '🕵'
 	hacker = '👨‍💻'
 	tick = '✅'
 	cross = '❎'
