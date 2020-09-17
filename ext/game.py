@@ -1,17 +1,17 @@
 import asyncio
-from collections import namedtuple
-from enum import Enum
 import logging
-from random import choice, randint
+from collections import namedtuple
 from dataclasses import dataclass
+from enum import Enum
+from random import choice, randint
 from typing import Any, Callable, Coroutine, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import discord
 from discord.ext import commands
 
 from bot import Bot, Context
-from util import emote_url, fmt_list, fmt_plural, fmt_time, get_bot_prefix, get_channel_link, wait_for_first, make_base_embed
 from lazy_search import LazyMemberConverter
+from util import emote_url, fmt_list, fmt_plural, fmt_time, get_bot_prefix, get_channel_link, make_base_embed, wait
 
 DEBUG = None
 
@@ -425,14 +425,14 @@ class MindnightGame:
 			await self._send('Talking phase skipped.')
 
 		async with self._typing():
-			await wait_for_first(
+			await wait((
 				wait_for_all_votes(),
 				self._start_timer(
 					time=30 + 15 * self.round_idx + 1,
 					callback=lambda seconds_left: self._send(f'⌛ {fmt_time(seconds_left)} left.'),
 					send_at=(30, 10)
 				)
-			)
+			), return_when=asyncio.FIRST_COMPLETED)
 
 		self._set_phase_task(self.select_phase())
 
@@ -571,14 +571,17 @@ class MindnightGame:
 			await msg.edit(embed=self._make_return_embed())
 
 		async with self._typing():
-			await wait_for_first(
-				asyncio.gather(*map(ask_for_vote, self.players)),
+			await wait((
+				wait(
+					map(ask_for_vote, self.players),
+					return_when=asyncio.FIRST_EXCEPTION
+				),
 				self._start_timer(
 					time=60,
 					callback=lambda seconds_left: self._send(f'⌛ {fmt_time(seconds_left)} left...', embed=make_state_embed(self)),
 					send_at=(60, 30, 10)
 				)
-			)
+			), return_when=asyncio.FIRST_COMPLETED)
 
 		self.round.update_team_rejected()
 
@@ -638,18 +641,21 @@ class MindnightGame:
 			await msg.edit(embed=self._make_return_embed())
 
 		async with self._typing():
-			timer_coro = self._start_timer(
+			timer_fut = asyncio.ensure_future(self._start_timer(
 				time=15,
 				callback=lambda seconds_left: self._send(f'⌛ {fmt_time(seconds_left)} left...', embed=make_state_embed(self)),
 				send_at=(15,)
-			)
+			))
 
-			(first_coro, _) = await wait_for_first(
-				asyncio.gather(*map(ask_for_action, self.round.team)),
-				timer_coro
-			)
+			(done, _) = await wait((
+				wait(
+					map(ask_for_action, self.round.team),
+					return_when=asyncio.FIRST_EXCEPTION
+				),
+				timer_fut
+			), return_when=asyncio.FIRST_COMPLETED)
 
-			if first_coro == timer_coro:
+			if timer_fut in done:
 				# TODO(netux): confirm that this is what happens in the real game
 				for member in self.round.team:
 					if member.has_hacked is None:

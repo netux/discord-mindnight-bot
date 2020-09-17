@@ -1,7 +1,6 @@
 import asyncio
 from bot import Bot
-from types import CoroutineType
-from typing import Any, Iterable, Mapping, Optional, Union, List, Tuple
+from typing import Any, Iterable, Mapping, Optional, Tuple, Union, List
 
 import discord
 
@@ -22,37 +21,46 @@ def get_nested_or(obj: Mapping[Any, Any], *path: List[str], default: Any) -> Any
 	except KeyError:
 		return default
 
-async def wait_in_order(*coros: Iterable[Union[CoroutineType, asyncio.Future]]):
-	results = []
-	for coro in coros:
-		results.append(await coro)
-	return results
+class MultipleExceptions(BaseException):
+	exceptions: Tuple[Exception]
 
-async def wait_for_first(*coros: Iterable[CoroutineType]):
-	futures: List[asyncio.Future] = list(map(lambda coro: asyncio.create_task(coro) if asyncio.iscoroutine(coro) else coro, coros))
+	def __init__(self, excs: Iterable[Exception]) -> None:
+		self.exceptions = tuple(excs)
 
-	result = None
-	result_coro = None
+	def __iter__(self) -> Iterable[Exception]:
+		return self.exceptions.__iter__()
 
-	async def wrap_coro(index: int, fut: asyncio.Future) -> Tuple[int, Any]:
-		nonlocal result, result_coro
+	def __len__(self) -> int:
+		return self.exceptions.__len__()
 
-		try:
-			this_result = await fut
-		except asyncio.CancelledError:
-			pass
+	@classmethod
+	def maybe(cls, excs: Iterable[Exception]) -> Exception:
+		excs = tuple(excs)
+		if len(excs) == 1:
+			return excs[0]
+		elif len(excs) > 1:
+			return cls(excs)
 		else:
-			if result_coro is not None:
-				return
-			result = this_result
-			result_coro = coros[index]
+			return None
 
-			for coro in futures:
-				coro.cancel()
+async def wait(futures: Iterable[Union[asyncio.Task, asyncio.Future]], *, loop: Optional[asyncio.AbstractEventLoop] = None, timeout: Optional[float] = None, return_when: str = asyncio.ALL_COMPLETED, raise_on_exception: bool = True, cancel_pending: bool = True, exception_whitelist: Tuple[Exception] = (asyncio.CancelledError,)):
+	(done, pending) = await asyncio.wait(futures, loop=loop, timeout=timeout, return_when=return_when)
 
-	await asyncio.gather(*map(lambda tup: wrap_coro(tup[0], tup[1]), enumerate(futures)))
+	if cancel_pending:
+		for task in pending:
+			task.cancel()
 
-	return (result_coro, result)
+	if raise_on_exception:
+		def get_ex(task: asyncio.Task):
+			try:
+				return task.exception()
+			except asyncio.CancelledError as ex:
+				return ex
+		excs = list(filter(lambda ex: ex is not None and not isinstance(ex, exception_whitelist), map(get_ex, done)))
+		if len(excs) != 0:
+			raise MultipleExceptions.maybe(excs)
+
+	return (done, pending)
 
 def make_base_embed(*args, title: Optional[str] = None, **kwargs):
 	t = 'Mindnight'
