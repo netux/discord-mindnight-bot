@@ -5,12 +5,18 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			"name": "Current File",
+			"type": "python",
+			"request": "launch",
+			"program": "${file}",
+			"cwd": "${fileDirname}",
+			"console": "integratedTerminal"
+		},
+		{
 			"name": "main.py",
 			"type": "python",
 			"request": "launch",
 			"program": "${workspaceFolder}/main.py",
-			//"module": "mindnight",
-			//"cwd": "${workspaceFolder}",
 			"console": "integratedTerminal"
 		}
 	]
