@@ -24,6 +24,8 @@ VOTED_REJECT_STR = 'N'
 AGENT_COLOR = discord.Color(0x78FB72)
 HACKER_COLOR = discord.Color(0xDB1034)
 
+logger = logging.getLogger('game')
+
 class Emotes:
 	agent = '🕵️'
 	hacker = '👨‍💻'
@@ -317,19 +319,8 @@ class MindnightGame:
 			pass
 		else:
 			if ex is not None:
-				async def send_goodbyes():
-					try:
-						await self._send('Game closed due to unexpected error.')
-					except Exception:
-						pass
-
-					try:
-						await self.end()
-					except Exception:
-						# Force game state to end so that channel doesn't get stuck in crashed game running.
-						self.state = GameState.ENDED
-				logging.exception(ex, exc_info=ex)
-				asyncio.create_task(send_goodbyes())
+				logger.exception(ex, exc_info=ex)
+				asyncio.create_task(self._abrupt_end())
 
 	def _set_phase_task(self, coro: Coroutine):
 		if self._phase_task is not None and not self._phase_task.done():
@@ -379,35 +370,39 @@ class MindnightGame:
 		self.state = GameState.RUNNING
 		self.info = INFO[len(self.players)]
 
-		hackers = []
-		for _ in range(self.hacker_count):
-			while True:
-				p = choice(self.players)
-				if p.role is None:
-					p.role = PlayerRole.HACKER
-					hackers.append(p)
-					break
+		try:
+			hackers = []
+			for _ in range(self.hacker_count):
+				while True:
+					p = choice(self.players)
+					if p.role is None:
+						p.role = PlayerRole.HACKER
+						hackers.append(p)
+						break
 
-		async with self._typing():
-			for p in self.players:
-				if p.role is None:
-					p.role = PlayerRole.AGENT
-					await p.send(
-						'You are Agent.',
-						embed=self._make_return_embed(
-							description=f'You are Agent.',
-							color=AGENT_COLOR
-						).set_thumbnail(url=emote_url(Emotes.agent))
-					)
-				elif p.role == PlayerRole.HACKER:
-					await p.send('You are Hacker.',
-						embed=self._make_return_embed(
-							description=f'You are hacked.\nYour fellow hackers are {fmt_list(str(p2) for p2 in hackers if p2.user.id != p.user.id)}.',
-							color=HACKER_COLOR
-						).set_thumbnail(url=emote_url(Emotes.hacker))
-					)
-
-		self._set_phase_task(self.next_round())
+			async with self._typing():
+				for p in self.players:
+					if p.role is None:
+						p.role = PlayerRole.AGENT
+						await p.send(
+							'You are Agent.',
+							embed=self._make_return_embed(
+								description=f'You are Agent.',
+								color=AGENT_COLOR
+							).set_thumbnail(url=emote_url(Emotes.agent))
+						)
+					elif p.role == PlayerRole.HACKER:
+						await p.send('You are Hacker.',
+							embed=self._make_return_embed(
+								description=f'You are hacked.\nYour fellow hackers are {fmt_list(str(p2) for p2 in hackers if p2.user.id != p.user.id)}.',
+								color=HACKER_COLOR
+							).set_thumbnail(url=emote_url(Emotes.hacker))
+						)
+		except Exception as ex:
+			logger.exception(ex, exc_info=ex)
+			await self._abrupt_end()
+		else:
+			self._set_phase_task(self.next_round())
 
 	async def next_round(self):
 		self.round_idx = 0 if self.round_idx is None else self.round_idx + 1
@@ -689,7 +684,7 @@ class MindnightGame:
 	async def end(self, winner: PlayerRole = None, *, reason: str = None):
 		prev_state = self.state
 		self.state = GameState.ENDED
-		if self._phase_task is not None and self._phase_task is not None:
+		if self._phase_task is not None and not self._phase_task.done():
 			self._phase_task.cancel()
 
 		hackers_win = winner == PlayerRole.HACKER
@@ -701,6 +696,18 @@ class MindnightGame:
 			))),
 			embed=make_state_embed(self, color=AGENT_COLOR if hackers_win else HACKER_COLOR)
 		)
+
+	async def _abrupt_end(self):
+		try:
+			await self._send('Game closed due to unexpected error.')
+		except Exception:
+			pass
+
+		try:
+			await self.end()
+		except Exception:
+			# Force game state to end so that channel doesn't get stuck in crashed game running.
+			self.state = GameState.ENDED
 
 	@property
 	def hacker_count(self):
@@ -1114,7 +1121,7 @@ def setup(bot: Bot):
 			if emote is not None:
 				setattr(Emotes, config_name, emote)
 			else:
-				logging.warn(''.join((
+				logger.warn(''.join((
 					f'Emote {config_name} with ID {id} not found on internal cache.',
 					' Make sure the bot belongs to the guild where the emote was added.'
 				)))
