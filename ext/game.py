@@ -783,10 +783,15 @@ def make_state_embed(game, *args, **kwargs):
 
 	embed = make_base_embed(*args, **kwargs)
 	if game.state == GameState.LOBBY:
+		def fmt_player(idx: int, p: GamePlayer):
+			ret = str(p)
+			if idx == 0:
+				ret += ' (host)'
+			return ret
 		embed.description = 'Waiting for host to start game'
 		embed.add_field(
 			name='Players',
-			value='\n'.join(map(str, game.players)),
+			value='\n'.join(map(lambda t: fmt_player(*t), enumerate(game.players))),
 			inline=False
 		)
 	if game.state == GameState.RUNNING:
