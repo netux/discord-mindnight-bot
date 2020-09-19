@@ -474,10 +474,10 @@ class MindnightGame(PrettyRepr):
 
 		self._set_phase_task(self.select_phase())
 
-	async def select_phase(self):
+	async def select_phase(self, *, skip: bool = False):
 		cancel_task(self._confirm_team_waiting_task)
 
-		last_proposer = self.rounds[self.round_idx - 1].proposer if self.round_idx != 0 and self.round.voting_attempts == 0 else self.round.proposer
+		last_proposer = self.rounds[self.round_idx - 1].proposer if self.round_idx != 0 and self.round.voting_attempts == 0 and not skip else self.round.proposer
 		proposer = self.round.proposer
 		while True:
 			if self.round_idx == 0 and self.round.voting_attempts == 0 and self.round.proposer is None:
@@ -575,7 +575,7 @@ class MindnightGame(PrettyRepr):
 			raise GameError('game is not on SELECT phase')
 
 		await self._send(f'{self.round.proposer} has skipped being the proposer.')
-		self._set_phase_task(self.select_phase())
+		self._set_phase_task(self.select_phase(skip=True))
 
 	async def confirm_team(self):
 		if self.state != GameState.RUNNING:
