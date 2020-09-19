@@ -11,7 +11,7 @@ from discord.ext import commands
 
 from bot import Bot, Context
 from lazy_search import LazyMemberConverter
-from util import PrettyRepr, emote_url, fmt_list, fmt_plural, fmt_time, get_bot_prefix, get_channel_link, make_base_embed, wait
+from util import MultipleExceptions, PrettyRepr, emote_url, fmt_list, fmt_plural, fmt_time, get_bot_prefix, get_channel_link, make_base_embed, wait
 
 DEBUG = None
 
@@ -355,6 +355,23 @@ class MindnightGame(PrettyRepr):
 
 			i += 1
 
+	async def _run_all_check_forbidden(self, tasks: Iterable[Union[asyncio.Task, asyncio.Future]]):
+		done, _ = await wait(tasks, raise_on_exception=False, cancel_pending=False)
+		def has_task_failed_with_forbidden(task: asyncio.Task):
+			try:
+				ex = task.exception()
+				if ex is not None:
+					if MultipleExceptions.get_first(ex, discord.Forbidden) is not None:
+						return True
+					else:
+						raise ex
+			except asyncio.CancelledError:
+				pass
+
+			return False
+
+		return set((task for task in done if has_task_failed_with_forbidden(task)))
+
 	async def start(self):
 		if self.state != GameState.LOBBY:
 			raise GameError('game must be in LOBBY state to start')
@@ -362,10 +379,10 @@ class MindnightGame(PrettyRepr):
 		if len(self.players) < MIN_PLAYER_COUNT:
 			raise GameError(f'must have at least {MIN_PLAYER_COUNT} players to start the game')
 
-		self.state = GameState.RUNNING
-		self.info = INFO[len(self.players)]
-
 		try:
+			self.state = GameState.RUNNING
+			self.info = INFO[len(self.players)]
+
 			hackers = []
 			for _ in range(self.hacker_count):
 				while True:
@@ -375,24 +392,35 @@ class MindnightGame(PrettyRepr):
 						hackers.append(p)
 						break
 
+			async def send_role(player: GamePlayer):
+				if player.role is None:
+					player.role = PlayerRole.AGENT
+					await player.send(
+						'You are Agent.',
+						embed=self._make_return_embed(
+							description=f'You are Agent.',
+							color=AGENT_COLOR
+						).set_thumbnail(url=emote_url(Emotes.agent))
+					)
+				elif player.role == PlayerRole.HACKER:
+					await player.send('You are Hacker.',
+						embed=self._make_return_embed(
+							description=f'You are hacked.\nYour fellow hackers are {fmt_list(str(p2) for p2 in hackers if p2.user.id != p.user.id)}.',
+							color=HACKER_COLOR
+						).set_thumbnail(url=emote_url(Emotes.hacker))
+					)
+
+			def wrap_send_role(player: GamePlayer):
+				fut = asyncio.ensure_future(send_role(player))
+				fut.payload = player
+				return fut
+
 			async with self._typing():
-				for p in self.players:
-					if p.role is None:
-						p.role = PlayerRole.AGENT
-						await p.send(
-							'You are Agent.',
-							embed=self._make_return_embed(
-								description=f'You are Agent.',
-								color=AGENT_COLOR
-							).set_thumbnail(url=emote_url(Emotes.agent))
-						)
-					elif p.role == PlayerRole.HACKER:
-						await p.send('You are Hacker.',
-							embed=self._make_return_embed(
-								description=f'You are hacked.\nYour fellow hackers are {fmt_list(str(p2) for p2 in hackers if p2.user.id != p.user.id)}.',
-								color=HACKER_COLOR
-							).set_thumbnail(url=emote_url(Emotes.hacker))
-						)
+				failed = await self._run_all_check_forbidden(map(wrap_send_role, self.players))
+				if len(failed) > 0:
+					await self._end_with_cant_dm((fut.payload for fut in failed))
+					return
+
 		except Exception as ex:
 			await self._abrupt_end(exc_info=ex)
 		else:
@@ -550,19 +578,23 @@ class MindnightGame(PrettyRepr):
 		self.round.voting_phase()
 
 		async def ask_for_vote(player: GamePlayer):
-			(msg, resp_emote) = await player.send(
-				embed=make_base_embed(
-					title='Voting time!',
-					description=f'React with 👍 to accept {self.round.proposer}\'s team, or 👎 to reject it.'
-				).add_field(
-					name='Team',
-					value=fmt_list(self.round.team),
-					inline=False
-				),
-				reactions=dict(emotes=['👍', '👎'], terms=[ACCEPT_SYNONYMS, REJECT_SYNONYMS], bot=self._bot)
-			)
-			self.player_vote(player, resp_emote == '👍')
-			await msg.edit(embed=self._make_return_embed())
+			try:
+				(msg, resp_emote) = await player.send(
+					embed=make_base_embed(
+						title='Voting time!',
+						description=f'React with 👍 to accept {self.round.proposer}\'s team, or 👎 to reject it.'
+					).add_field(
+						name='Team',
+						value=fmt_list(self.round.team),
+						inline=False
+					),
+					reactions=dict(emotes=['👍', '👎'], terms=[ACCEPT_SYNONYMS, REJECT_SYNONYMS], bot=self._bot)
+				)
+			except discord.Forbidden:
+				await self._end_with_cant_dm([player])
+			else:
+				self.player_vote(player, resp_emote == '👍')
+				await msg.edit(embed=self._make_return_embed())
 
 		async with self._typing():
 			await wait((
@@ -621,18 +653,22 @@ class MindnightGame(PrettyRepr):
 				terms.append(REJECT_SYNONYMS)
 				instructions += f' or {Emotes.hack_button} to hack'
 			instructions += ' the node.'
-			(msg, resp_emote) = await member.player.send(
-				embed=make_base_embed(
-					description=instructions
-				).add_field(
-					name='Team',
-					value=fmt_list(self.round.team),
-					inline=False
-				),
-				reactions=dict(emotes=emotes, terms=terms, bot=self._bot)
-			)
-			member.set_hacked(resp_emote == Emotes.hack_button)
-			await msg.edit(embed=self._make_return_embed())
+			try:
+				(msg, resp_emote) = await member.player.send(
+					embed=make_base_embed(
+						description=instructions
+					).add_field(
+						name='Team',
+						value=fmt_list(self.round.team),
+						inline=False
+					),
+					reactions=dict(emotes=emotes, terms=terms, bot=self._bot)
+				)
+			except discord.Forbidden:
+				await self._end_with_cant_dm([member.player])
+			else:
+				member.set_hacked(resp_emote == Emotes.hack_button)
+				await msg.edit(embed=self._make_return_embed())
 
 		async with self._typing():
 			timer_fut = asyncio.ensure_future(self._start_timer(
@@ -696,6 +732,12 @@ class MindnightGame(PrettyRepr):
 			))),
 			embed=make_state_embed(self, color=AGENT_COLOR if hackers_win else HACKER_COLOR)
 		)
+
+	async def _end_with_cant_dm(self, players: List[GamePlayer]):
+		return await self.end(reason='**' + ' '.join((
+			f'I can\'t DM {fmt_list(players)}.',
+			'Please make sure you haven\'t blocked me, and that you have enabled "Allow direct messages from server members." on your Privacy Settings for this server, then try again.'
+		)) + '**')
 
 	async def _abrupt_end(self, *, exc_info: Exception = None):
 		if exc_info is not None:
@@ -904,6 +946,10 @@ class MindnightCog(commands.Cog, name='Game'):
 			return
 
 		await game.start()
+		if game.state == GameState.ENDED:
+			# game failed to start, ended abruptly.
+			return
+
 		player_mentions = ' '.join(map(lambda p: p.user.mention, game.players))
 		hackers_txt = f'{game.info.hackers} ' + fmt_plural(game.info.hackers, 'hacker')
 		await ctx.send(f'{player_mentions} Mindnight game started.\nThere are {hackers_txt} among you.')

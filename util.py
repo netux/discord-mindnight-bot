@@ -1,6 +1,6 @@
 import asyncio
 from bot import Bot
-from typing import Any, Iterable, Mapping, Optional, Tuple, Union, List
+from typing import Any, Iterable, Mapping, Optional, Tuple, Type, Union, List
 
 import discord
 
@@ -42,6 +42,16 @@ class MultipleExceptions(BaseException):
 			return cls(excs)
 		else:
 			return None
+
+	@staticmethod
+	def get_first(ex: Exception, typ: Type[Exception]) -> Optional[Exception]:
+		if isinstance(ex, MultipleExceptions):
+			for inner_ex in ex.exceptions:
+				if isinstance(inner_ex, typ):
+					return inner_ex
+			return None
+		else:
+			return ex if isinstance(ex, typ) else None
 
 async def wait(futures: Iterable[Union[asyncio.Task, asyncio.Future]], *, loop: Optional[asyncio.AbstractEventLoop] = None, timeout: Optional[float] = None, return_when: str = asyncio.ALL_COMPLETED, raise_on_exception: bool = True, cancel_pending: bool = True, exception_whitelist: Tuple[Exception] = (asyncio.CancelledError,)):
 	(done, pending) = await asyncio.wait(futures, loop=loop, timeout=timeout, return_when=return_when)
