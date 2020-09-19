@@ -455,12 +455,16 @@ class MindnightGame(PrettyRepr):
 		msg = await self._send(embed=make_state_embed(self))
 		await msg.add_reaction(Emotes.skip_phase_button)
 
-		all_human_players_length = len(list(filter(lambda p: not isinstance(p.user, FakeUser), self.players)))
-		has_enough_votes_to_skip = lambda r, _: r.emoji == Emotes.skip_phase_button and r.count - 1 == all_human_players_length
+		player_ids = set(p.user.id for p in self.players if not isinstance(p.user, FakeUser))
+		has_enough_votes = lambda r, _: r.message.id != msg.id or r.emoji != Emotes.skip_phase_button or r.count - 1 >= len(player_ids)
 
 		async def wait_for_all_votes():
-			await self._bot.wait_for('reaction_add', check=has_enough_votes_to_skip)
-			await self._send('Talking phase skipped.')
+			while True:
+				reaction, _ = await self._bot.wait_for('reaction_add', check=has_enough_votes)
+				users = map(lambda u: u.id, await reaction.users().flatten())
+				if player_ids.issubset(users):
+					break
+			await self._send(f'{Emotes.skip_phase_button} Talking phase skipped.')
 
 		async with self._typing():
 			await wait((
