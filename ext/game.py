@@ -806,6 +806,7 @@ def make_state_embed(game, *args, **kwargs):
 				value='\n'.join(map(str, game.players)),
 				inline=False
 			)
+			embed.set_footer(text=f'React with {Emotes.skip_phase_button} to vote skip.')
 		if game.round.phase == RoundPhase.SELECT:
 			phase_name_txt = 'Select'
 			embed.description = f'{game.round.proposer.user} is selecting players to complete the node.'
