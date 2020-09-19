@@ -72,6 +72,10 @@ async def wait(futures: Iterable[Union[asyncio.Task, asyncio.Future]], *, loop: 
 
 	return (done, pending)
 
+def cancel_task(task: Optional[Union[asyncio.Future, asyncio.Task]]):
+	if task is not None and not task.done():
+		task.cancel()
+
 def make_base_embed(*args, title: Optional[str] = None, **kwargs):
 	t = 'Mindnight'
 	if title is not None:

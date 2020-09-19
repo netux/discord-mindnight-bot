@@ -11,7 +11,7 @@ from discord.ext import commands
 
 from bot import Bot, Context
 from lazy_search import LazyMemberConverter
-from util import MultipleExceptions, PrettyRepr, emote_url, fmt_list, fmt_plural, fmt_time, get_bot_prefix, get_channel_link, make_base_embed, wait
+from util import MultipleExceptions, PrettyRepr, async_noop, cancel_task, emote_url, fmt_list, fmt_plural, fmt_time, get_bot_prefix, get_channel_link, make_base_embed, wait
 
 DEBUG = None
 
@@ -43,11 +43,17 @@ class FakeUser(discord.Object, PrettyRepr):
 	nick: str = 'FakeUser'
 
 	async def request_input(self):
-		return input(f'[from {self}]: ')
+		await async_noop()
+		res = input(f'[from {self}]: ')
+		await async_noop()
+		return res
 
 	async def send(self, content: Optional[str] = '', *args, **kwargs):
+		await async_noop()
 		print(f'[to {self}]: {content} ({args}, {kwargs})')
-		return FakeMessage(randint(0, 100000000), content, self, **kwargs)
+		msg = FakeMessage(randint(0, 100000000), content, self, **kwargs)
+		await async_noop()
+		return msg
 
 	@property
 	def mention(self) -> str:
@@ -271,7 +277,8 @@ class MindnightGame(PrettyRepr):
 	round_idx: Optional[int] = None
 
 	_bot: Bot = None
-	_phase_task: asyncio.Future = None
+	_timer_task: asyncio.Task = None
+	_phase_task: asyncio.Task = None
 	_confirm_team_waiting_task: asyncio.Task = None
 	_last_send_channel_message: discord.Message = None
 
@@ -318,10 +325,14 @@ class MindnightGame(PrettyRepr):
 				asyncio.create_task(self._abrupt_end(exc_info=ex))
 
 	def _set_phase_task(self, coro: Coroutine):
-		if self._phase_task is not None and not self._phase_task.done():
-			self._phase_task.cancel()
+		cancel_task(self._phase_task)
 		self._phase_task = asyncio.create_task(coro)
 		self._phase_task.add_done_callback(self._handle_phase_task_done)
+
+	def _cancel_tasks(self):
+		cancel_task(self._timer_task)
+		cancel_task(self._phase_task)
+		cancel_task(self._confirm_team_waiting_task)
 
 	def _make_return_embed(self, *args, description: Optional[str] = None, **kwargs):
 		if description is not None:
@@ -339,21 +350,26 @@ class MindnightGame(PrettyRepr):
 		self._last_send_channel_message = msg
 		return msg
 
-	async def _start_timer(self, *, time: int, callback: Callable[[int], Any], send_at: List[int]):
-		seconds_left = time
-		send_at = sorted(filter(lambda s: s <= time, send_at), reverse=True)
-		i = 0
-		while seconds_left > 0:
-			s = send_at[i] if i < len(send_at) else 0
+	def _start_timer(self, *, time: int, callback: Callable[[int], Any], send_at: List[int]):
+		async def make_coro():
+			nonlocal time, callback, send_at
+			seconds_left = time
+			send_at = sorted(filter(lambda s: s <= time, send_at), reverse=True)
+			i = 0
+			while seconds_left > 0:
+				s = send_at[i] if i < len(send_at) else 0
 
-			delta = seconds_left - s
-			await asyncio.sleep(delta)
+				delta = seconds_left - s
+				await asyncio.sleep(delta)
 
-			seconds_left = s if s != 0 else seconds_left - delta
-			if seconds_left > 0:
-				await discord.utils.maybe_coroutine(callback, seconds_left)
+				seconds_left = s if s != 0 else seconds_left - delta
+				if seconds_left > 0:
+					await discord.utils.maybe_coroutine(callback, seconds_left)
 
-			i += 1
+				i += 1
+
+		self._timer_task = asyncio.create_task(make_coro())
+		return self._timer_task
 
 	async def _run_all_check_forbidden(self, tasks: Iterable[Union[asyncio.Task, asyncio.Future]]):
 		done, _ = await wait(tasks, raise_on_exception=False, cancel_pending=False)
@@ -459,7 +475,7 @@ class MindnightGame(PrettyRepr):
 		self._set_phase_task(self.select_phase())
 
 	async def select_phase(self):
-		self._cancel_confirm_team_waiting_task()
+		cancel_task(self._confirm_team_waiting_task)
 
 		last_proposer = self.rounds[self.round_idx - 1].proposer if self.round_idx != 0 and self.round.voting_attempts == 0 else self.round.proposer
 		proposer = self.round.proposer
@@ -516,14 +532,14 @@ class MindnightGame(PrettyRepr):
 			self.round.team.add(new_member)
 		await self.confirm_team()
 
-	async def _create_confirm_team_task_coro(self, msg: discord.Message):
-		check = lambda r, u: u.id == self.round.proposer.user.id and r.message.id == msg.id and r.emoji == Emotes.confirm_button
-		await self._bot.wait_for('reaction_add', check=check)
-		await self.confirm_team()
-
-	def _cancel_confirm_team_waiting_task(self):
-		if self._confirm_team_waiting_task is not None and not self._confirm_team_waiting_task.done():
-			self._confirm_team_waiting_task.cancel()
+	def _create_confirm_team_task(self, msg: discord.Message):
+		async def make_coro():
+			nonlocal msg
+			check = lambda r, u: u.id == self.round.proposer.user.id and r.message.id == msg.id and r.emoji == Emotes.confirm_button
+			await self._bot.wait_for('reaction_add', check=check)
+			await self.confirm_team()
+		self._confirm_team_waiting_task = asyncio.create_task(make_coro())
+		return self._confirm_team_waiting_task
 
 	async def set_team(self, members: Iterable[GamePlayer]):
 		if self.round is None:
@@ -546,10 +562,10 @@ class MindnightGame(PrettyRepr):
 		msg = await self._send('Updated team:\n' + '\n'.join(diff_txt_arr),
 			embed=make_state_embed(self)
 		)
-		self._cancel_confirm_team_waiting_task()
+		cancel_task(self._confirm_team_waiting_task)
 		if len(self.round.team) == self.picks_for_current_node:
 			await msg.add_reaction(Emotes.confirm_button)
-			self._confirm_team_waiting_task = asyncio.create_task(self._create_confirm_team_task_coro(msg))
+			self._create_confirm_team_task(msg)
 
 	async def skip_team_composition(self):
 		if self.state != GameState.RUNNING:
@@ -571,7 +587,7 @@ class MindnightGame(PrettyRepr):
 		if len(self.round.team) < self.picks_for_current_node:
 			raise GameError(f'team size is lower than needed. Need {self.picks_for_current_node}, got {len(self.round.team)}')
 
-		self._cancel_confirm_team_waiting_task()
+		self._cancel_tasks()
 		self._set_phase_task(self.voting_phase())
 
 	async def voting_phase(self):
@@ -720,8 +736,7 @@ class MindnightGame(PrettyRepr):
 	async def end(self, winner: PlayerRole = None, *, reason: str = None):
 		prev_state = self.state
 		self.state = GameState.ENDED
-		if self._phase_task is not None and not self._phase_task.done():
-			self._phase_task.cancel()
+		self._cancel_tasks()
 
 		hackers_win = winner == PlayerRole.HACKER
 		await self._send(
