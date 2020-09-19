@@ -1151,6 +1151,8 @@ class MindnightCog(commands.Cog, name='Game'):
 					ret += f'\n➜ Proposer: {rnd.proposer}'
 				if rnd.phase.value > RoundPhase.SELECT.value:
 					ret += '\n➜ Team: ' + ', '.join(map(str, rnd.team))
+					if rnd.hacks_detected is not None and rnd.hacks_detected > 0:
+						ret += f' ({rnd.hacks_detected} ' + fmt_plural(rnd.hacks_detected, 'hack') + ')'
 			return ret
 
 		await ctx.send(
