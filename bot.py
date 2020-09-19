@@ -61,11 +61,10 @@ class Bot(commands.Bot):
 				return
 
 			await ctx.message.add_reaction('🥴')
+			logging.exception(ex, exc_info=ex)
 		except discord.errors.DiscordException as ex2:
 			ex2.__cause__ = ex
-			ex = ex2
-		finally:
-			logging.exception(ex, exc_info=ex)
+			logging.exception(ex2, exc_info=ex2)
 
 	def add_temporary_listener(self, event: str, callback: Callable[..., None], *, check: Optional[Callable[..., bool]] = None, timeout: Optional[float] = None):
 		if check is None:
