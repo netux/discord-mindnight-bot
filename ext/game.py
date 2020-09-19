@@ -734,18 +734,15 @@ class MindnightGame(PrettyRepr):
 		self._set_phase_task(self.next_round())
 
 	async def end(self, winner: PlayerRole = None, *, reason: str = None):
-		prev_state = self.state
 		self.state = GameState.ENDED
 		self._cancel_tasks()
 
-		hackers_win = winner == PlayerRole.HACKER
 		await self._send(
 			'\n'.join(filter(lambda s: s is not None, (
-				'Mindnight game finished, ' + ('nobody wins' if winner is None else (f'{Emotes.hacker} Hackers win' if hackers_win else f'{Emotes.agent} Agents win')) + '.',
-				reason,
-				('Hackers were ' + ', '.join(str(p) for p in self.players if p.role == PlayerRole.HACKER)) if prev_state.value > GameState.LOBBY.value else None
+				'Mindnight game finished, ' + ('nobody wins' if winner is None else (f'{Emotes.hacker} Hackers win' if winner == PlayerRole.HACKER else f'{Emotes.agent} Agents win')) + '.',
+				reason
 			))),
-			embed=make_state_embed(self, color=AGENT_COLOR if hackers_win else HACKER_COLOR)
+			embed=make_state_embed(self, color=discord.Embed.Empty if winner is None else (HACKER_COLOR if winner == PlayerRole.HACKER else AGENT_COLOR))
 		)
 
 	async def _end_with_cant_dm(self, players: List[GamePlayer]):
@@ -866,6 +863,13 @@ def make_state_embed(game, *args, **kwargs):
 			)
 	elif game.state == GameState.ENDED:
 		embed.description = 'Game has ended, thanks for playing!'
+		hackers = list(str(p) for p in game.players if p.role == PlayerRole.HACKER)
+		if len(hackers) > 0:
+			embed.add_field(
+				name='Hackers',
+				value=', '.join(hackers),
+				inline=False
+			)
 
 	return embed
 
