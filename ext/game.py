@@ -821,7 +821,6 @@ def make_state_embed(game, *args, **kwargs):
 		elif game.round.phase == RoundPhase.VOTING:
 			phase_name_txt = 'Voting'
 			embed.description = f'All players are voting on the team assembled by {game.round.proposer}.'
-			# still_voting = len(game.round.votes.accepted) + len(game.round.votes.rejected) != len(game.players)
 			if game.round.team_rejected is None:
 				def fmt_player(p: GamePlayer):
 					ret = fmt_player_with_team(p)
@@ -924,7 +923,7 @@ class MindnightCog(commands.Cog, name='Game'):
 	)
 	async def mindnight__leave(self, ctx: Context):
 		game: MindnightGame = self.games.get(ctx.channel.id, None)
-		if game is None:
+		if game is None or game.state == GameState.ENDED:
 			await ctx.reply('no Mindnight game to leave.')
 			return
 
