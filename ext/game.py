@@ -421,7 +421,7 @@ class MindnightGame(PrettyRepr):
 				elif player.role == PlayerRole.HACKER:
 					await player.send('You are Hacker.',
 						embed=self._make_return_embed(
-							description=f'You are hacked.\nYour fellow hackers are {fmt_list(str(p2) for p2 in hackers if p2.user.id != p.user.id)}.',
+							description=f'You are hacker.\nYour fellow hackers are {fmt_list(str(p2) for p2 in hackers if p2.user.id != player.user.id)}.',
 							color=HACKER_COLOR
 						).set_thumbnail(url=emote_url(Emotes.hacker))
 					)
