@@ -54,23 +54,36 @@ class MultipleExceptions(BaseException):
 			return ex if isinstance(ex, typ) else None
 
 async def wait(futures: Iterable[Union[asyncio.Task, asyncio.Future]], *, loop: Optional[asyncio.AbstractEventLoop] = None, timeout: Optional[float] = None, return_when: str = asyncio.ALL_COMPLETED, raise_on_exception: bool = True, cancel_pending: bool = True, exception_whitelist: Tuple[Exception] = (asyncio.CancelledError,)):
-	(done, pending) = await asyncio.wait(futures, loop=loop, timeout=timeout, return_when=return_when)
+	futures = list(map(asyncio.ensure_future, futures))
+	try:
+		(done, pending) = await asyncio.wait(futures, loop=loop, timeout=timeout, return_when=return_when)
+	except asyncio.CancelledError as ex:
+		if cancel_pending:
+			for task in futures:
+				try:
+					if not task.done():
+						task.cancel()
+				except asyncio.CancelledError:
+					# 🤷‍♂️
+					pass
 
-	if cancel_pending:
-		for task in pending:
-			task.cancel()
+		raise ex
+	else:
+		if cancel_pending:
+			for task in pending:
+				task.cancel()
 
-	if raise_on_exception:
-		def get_ex(task: asyncio.Task):
-			try:
-				return task.exception()
-			except asyncio.CancelledError as ex:
-				return ex
-		excs = list(filter(lambda ex: ex is not None and not isinstance(ex, exception_whitelist), map(get_ex, done)))
-		if len(excs) != 0:
-			raise MultipleExceptions.maybe(excs)
+		if raise_on_exception:
+			def get_ex(task: asyncio.Task):
+				try:
+					return task.exception()
+				except asyncio.CancelledError as ex:
+					return ex
+			excs = list(filter(lambda ex: ex is not None and not isinstance(ex, exception_whitelist), map(get_ex, done)))
+			if len(excs) != 0:
+				raise MultipleExceptions.maybe(excs)
 
-	return (done, pending)
+		return (done, pending)
 
 def cancel_task(task: Optional[Union[asyncio.Future, asyncio.Task]]):
 	if task is not None and not task.done():
