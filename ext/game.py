@@ -123,7 +123,7 @@ class GamePlayer(PrettyRepr):
 		if isinstance(self.user, (discord.User, discord.Member)):
 			for em in reactions['emotes']:
 				await msg.add_reaction(em)
-			check = lambda r, u: u.id == self.user.id and r.message.channel.id == self.user.dm_channel.id and r.emoji in reactions['emotes']
+			check = lambda r, u: u.id == self.user.id and r.message.id == msg.id and r.emoji in reactions['emotes']
 			(r, _) = await reactions['bot'].wait_for('reaction_add', check=check)
 			return (msg, r.emoji)
 		elif DEBUG and isinstance(self.user, FakeUser):
