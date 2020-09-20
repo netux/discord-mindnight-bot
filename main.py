@@ -1,3 +1,4 @@
+import sys
 import logging
 from util import get_nested_or
 from webhook_logging import WebhookLogHandler, WebhookLogRecordFormatter
@@ -59,8 +60,6 @@ def setup_logging(**config):
 	)
 
 if __name__ == '__main__':
-	import sys
-
 	config: ParseResults = ConfigFactory.parse_file('bot.conf')
 
 	setup_logging(**config.get('logging'))
@@ -83,7 +82,9 @@ if __name__ == '__main__':
 		allowed_mentions=AllowedMentions(everyone=False, roles=False)
 	)
 
-	bot.load_extension('ext.meta')
-	bot.load_extension('ext.game')
-
-	bot.run(token)
+	try:
+		bot.run(token)
+	except KeyboardInterrupt:
+		pass
+	except Exception as ex:
+		logging.fatal(ex, exc_info=ex)

@@ -744,16 +744,16 @@ class MindnightGame(PrettyRepr):
 		await self._send(
 			'\n'.join(filter(lambda s: s is not None, (
 				'Mindnight game finished, ' + ('nobody wins' if winner is None else (f'{Emotes.hacker} Hackers win' if winner == PlayerRole.HACKER else f'{Emotes.agent} Agents win')) + '.',
-				reason
+				''.join(map(lambda line: f'> {line}', reason.splitlines(keepends=True))) if reason is not None else None
 			))),
 			embed=make_state_embed(self, color=discord.Embed.Empty if winner is None else (HACKER_COLOR if winner == PlayerRole.HACKER else AGENT_COLOR))
 		)
 
 	async def _end_with_cant_dm(self, players: List[GamePlayer]):
-		return await self.end(reason='**' + ' '.join((
-			f'I can\'t DM {fmt_list(players)}.',
+		return await self.end(reason='\n'.join((
+			f'**I can\'t DM {fmt_list(players)}.**',
 			'Please make sure you haven\'t blocked me, and that you have enabled "Allow direct messages from server members." on your Privacy Settings for this server, then try again.'
-		)) + '**')
+		)))
 
 	async def _abrupt_end(self, *, exc_info: Exception = None):
 		if exc_info is not None:
@@ -889,6 +889,9 @@ class MindnightCog(commands.Cog, name='Game'):
 
 	def __init__(self):
 		self.games = dict()
+
+	async def end_all(self, *, reason: str = None):
+		return await asyncio.gather(*map(lambda g: g.end(reason=reason), self.games.values()))
 
 	# @overwrite
 	async def cog_check(self, ctx: Context):

@@ -39,6 +39,24 @@ class Bot(commands.Bot):
 		super().__init__(*args, **kwargs)
 		self.config = config
 
+		self.load_extension('ext.meta')
+		self.load_extension('ext.game')
+
+	# @overwrite
+	async def close(self):
+		try:
+			logging.info('Ending running games...')
+
+			reason = '**Bot shutting down**. Sorry for the inconvenience.'
+			support_invite = self.support_invite
+			if support_invite is not None:
+				reason += f'\nJoin our support server to learn more about this incident: <{support_invite}>.'
+			await self.get_cog('Game').end_all(reason=reason)
+		except Exception as ex:
+			logging.fatal('Cannot end running games', exc_info=ex)
+
+		await super().close()
+
 	# @overwrite
 	async def on_ready(self):
 		logging.info(f'Logged in as {self.user}')
