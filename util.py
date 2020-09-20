@@ -1,5 +1,4 @@
 import asyncio
-from bot import Bot
 from typing import Any, Iterable, Mapping, Optional, Tuple, Type, Union, List
 
 import discord

@@ -21,6 +21,7 @@ class MetaCog(commands.Cog, name='Meta'):
 		description='Show help',
 		invoke_without_command=True
 	)
+	@commands.cooldown(1, 1.0, commands.BucketType.channel)
 	async def mindnight__help(self, ctx: Context):
 		embed = make_base_embed(title='Help')
 		embed.add_field(
@@ -57,6 +58,7 @@ class MetaCog(commands.Cog, name='Meta'):
 		aliases=['command', 'usage', 'cmds', 'cmd'],
 		brief='Display available commands and what they do.'
 	)
+	@commands.cooldown(1, 1.0, commands.BucketType.channel)
 	async def mindnight__help__commands(self, ctx: Context):
 		game_cog = ctx.bot.get_cog('Game')
 		await ctx.send(embed=make_base_embed(
@@ -71,6 +73,7 @@ class MetaCog(commands.Cog, name='Meta'):
 		aliases=['htp', '?'],
 		brief='Information about how to play Mindnight.'
 	)
+	@commands.cooldown(1, 1.0, commands.BucketType.channel)
 	async def mindnight__help__howtoplay(self, ctx: Context):
 		await ctx.send('https://youtu.be/MoSxtK-pPnQ')
 		await ctx.send(
@@ -90,6 +93,7 @@ class MetaCog(commands.Cog, name='Meta'):
 		aliases=['information', 'inspiration'],
 		brief='Information about the bot and the inspiration behind it.'
 	)
+	@commands.cooldown(1, 1.0, commands.BucketType.channel)
 	async def mindnight__help__info(self, ctx: Context):
 		await ctx.send(
 			embed=make_base_embed(

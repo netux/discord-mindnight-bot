@@ -911,6 +911,7 @@ class MindnightCog(commands.Cog, name='Game'):
 		description='Join (or create) a Mindnight game in the channel',
 		brief='Join/create game'
 	)
+	@commands.cooldown(1, 1.0, commands.BucketType.user)
 	async def mindnight__join(self, ctx: Context):
 		game: MindnightGame = self.games.get(ctx.channel.id, None)
 		create_new_game = game is None or game.state == GameState.ENDED
@@ -938,6 +939,7 @@ class MindnightCog(commands.Cog, name='Game'):
 		description='Leave the game on this channel. If the game is already running, it forcefully ends.',
 		brief='Leave game'
 	)
+	@commands.cooldown(1, 1.0, commands.BucketType.user)
 	async def mindnight__leave(self, ctx: Context):
 		game: MindnightGame = self.games.get(ctx.channel.id, None)
 		if game is None or game.state == GameState.ENDED:
@@ -965,6 +967,7 @@ class MindnightCog(commands.Cog, name='Game'):
 		description='Start the game on this channel. Can only be used by the user that first joined the game.',
 		brief='Start the game'
 	)
+	@commands.cooldown(1, 1.0, commands.BucketType.user)
 	async def mindnight__start(self, ctx: Context):
 		game = self.get_game_maybe(ctx)
 
@@ -987,11 +990,12 @@ class MindnightCog(commands.Cog, name='Game'):
 
 	@commands.command(
 		name='pick',
-		aliases=['select', 'choose'],
+		aliases=['select', 'choose', 'prop', 'propose'],
 		description='Pick people for a team. You must be the proposer to pick a team.',
 		brief='Pick people for a team.',
 		usage='[pick_user_1 pick_user_2 ...] or [-remove_user_1 -remove_user_2 ...]'
 	)
+	@commands.cooldown(1, 0.5, commands.BucketType.channel)
 	async def mindnight__pick(self, ctx: Context, *users: str):
 		game = self.get_game_maybe(ctx)
 
@@ -1039,6 +1043,7 @@ class MindnightCog(commands.Cog, name='Game'):
 		description='If you are the proposer, passes proposer to the next player.',
 		brief='Pass proposer to the next player'
 	)
+	@commands.cooldown(1, 1.0, commands.BucketType.user)
 	async def mindnight__pass(self, ctx: Context):
 		game = self.get_game_maybe(ctx)
 
@@ -1061,6 +1066,7 @@ class MindnightCog(commands.Cog, name='Game'):
 		description='If you are proposer, confirms your team and starts Voting Phase.',
 		brief='Confirmed proposed team'
 	)
+	@commands.cooldown(1, 1.0, commands.BucketType.user)
 	async def mindnight__confirm(self, ctx: Context):
 		game = self.get_game_maybe(ctx)
 
@@ -1087,6 +1093,7 @@ class MindnightCog(commands.Cog, name='Game'):
 		)),
 		brief='Show information about the state of the game'
 	)
+	@commands.cooldown(1, 1.0, commands.BucketType.channel)
 	async def mindnight__state(self, ctx: Context):
 		game = self.get_game_maybe(ctx)
 		await ctx.send(embed=make_state_embed(game))
@@ -1097,6 +1104,7 @@ class MindnightCog(commands.Cog, name='Game'):
 		description='Shows information on each player\'s votes on the team compositions of previous nodes.',
 		brief='Show information on each player\'s votes'
 	)
+	@commands.cooldown(1, 1.0, commands.BucketType.channel)
 	async def mindnight__votes(self, ctx: Context):
 		game = self.get_game_maybe(ctx)
 
@@ -1133,6 +1141,7 @@ class MindnightCog(commands.Cog, name='Game'):
 		description='Shows information about the nodes: the team, who proposed it, and whenever it was compromised.',
 		brief='Show information about the nodes'
 	)
+	@commands.cooldown(1, 1.0, commands.BucketType.channel)
 	async def mindnight__nodes(self, ctx: Context):
 		game = self.get_game_maybe(ctx)
 

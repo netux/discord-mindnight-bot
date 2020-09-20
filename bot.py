@@ -79,7 +79,7 @@ class Bot(commands.Bot):
 			elif isinstance(ex, commands.NotOwner):
 				await ctx.message.add_reaction('⛔')
 				return
-			elif isinstance(ex, (commands.CommandNotFound, commands.NoPrivateMessage)):
+			elif isinstance(ex, (commands.CommandNotFound, commands.NoPrivateMessage, commands.CommandOnCooldown)):
 				return
 
 			await ctx.message.add_reaction('🥴')
