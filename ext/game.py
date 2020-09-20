@@ -11,7 +11,7 @@ from discord.ext import commands
 
 from bot import Bot, Context
 from lazy_search import LazyMemberConverter
-from util import MultipleExceptions, PrettyRepr, async_noop, cancel_task, emote_url, fmt_list, fmt_plural, fmt_time, get_bot_prefix, get_channel_link, make_base_embed, wait
+from util import MultipleExceptions, PrettyRepr, async_noop, cancel_task, emote_url, fmt_list, fmt_plural, fmt_time, get_channel_link, make_base_embed, wait
 
 DEBUG = None
 
@@ -501,8 +501,8 @@ class MindnightGame(PrettyRepr):
 		await self._send(
 			'\n'.join((
 				f'**{self.round.proposer.user.mention} IS PROPOSING**.',
-				f'Use `{get_bot_prefix(self._bot)}pick <users...>` to select **{self.picks_for_current_node}** players to complete the mission.',
-				f'Then use `{get_bot_prefix(self._bot)}confirm` to confirm your selection and start the voting phase.',
+				f'Use `{self._bot.get_first_prefix()}pick <users...>` to select **{self.picks_for_current_node}** players to complete the mission.',
+				f'Then use `{self._bot.get_first_prefix()}confirm` to confirm your selection and start the voting phase.',
 				'',
 				f'You all have {fmt_time(TIME_SECONDS)} to decide.'
 			)),
@@ -824,7 +824,7 @@ def make_state_embed(game, *args, **kwargs):
 				value=f'{len(game.round.team)}/{game.picks_for_current_node}',
 				inline=False
 			)
-			embed.set_footer(text=f'Remember to run `{get_bot_prefix(game._bot)}confirm` to begin the voting phase.')
+			embed.set_footer(text=f'Remember to run `{game._bot.get_first_prefix()}confirm` to begin the voting phase.')
 		elif game.round.phase == RoundPhase.VOTING:
 			phase_name_txt = 'Voting'
 			embed.description = f'All players are voting on the team assembled by {game.round.proposer}.'
@@ -919,7 +919,7 @@ class MindnightCog(commands.Cog, name='Game'):
 		await ctx.reply('Mindnight game ' + ('created' if create_new_game else 'joined') + '.',
 			embed=make_base_embed(
 				title='Game created',
-				description=f'Use `{get_bot_prefix(ctx.bot)}join` to join.'
+				description=f'Use `{ctx.bot.get_first_prefix()}join` to join.'
 			) if create_new_game else None
 		)
 

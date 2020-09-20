@@ -30,6 +30,10 @@ class ContextBase(commands.Context):
 class Bot(commands.Bot):
 	config: ParseResults
 
+	@property
+	def support_invite(self):
+		return self.config.get('bot.support_invite', None)
+
 	# @overwrite
 	def __init__(self, config: ParseResults, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -92,6 +96,14 @@ class Bot(commands.Bot):
 			timer = asyncio.get_event_loop().create_task(handle_timeout())
 
 		self.add_listener(handle_callback, name=ev_name)
+
+	def get_first_prefix(self):
+		if isinstance(self.command_prefix, str):
+			return self.command_prefix
+		elif isinstance(self.command_prefix, (tuple, list)):
+			return self.command_prefix[0]
+		else:
+			raise Exception('cannot get a bot prefix without context')
 
 class Context(ContextBase):
 	bot: Bot

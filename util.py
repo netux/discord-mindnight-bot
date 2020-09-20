@@ -95,14 +95,6 @@ def make_base_embed(*args, title: Optional[str] = None, **kwargs):
 		t += f' - {title}'
 	return discord.Embed(*args, **kwargs, title=t)
 
-def get_bot_prefix(bot: Bot):
-	if isinstance(bot.command_prefix, str):
-		return bot.command_prefix
-	elif isinstance(bot.command_prefix, (tuple, list)):
-		return bot.command_prefix[0]
-	else:
-		raise Exception('cannot get bot prefix')
-
 def get_channel_link(channel: Union[discord.TextChannel, discord.VoiceChannel, discord.DMChannel, discord.GroupChannel]):
 	guild_id = channel.guild.id if isinstance(channel, discord.abc.GuildChannel) else '@me'
 	return f'https://discord.com/channels/{guild_id}/{channel.id}'

@@ -29,7 +29,7 @@ class MetaCog(commands.Cog, name='Meta'):
 			inline=False
 		)
 
-		support_invite = ctx.bot.config.get('bot.support_invite', None)
+		support_invite = ctx.bot.support_invite
 		if support_invite is not None:
 			embed.add_field(
 				name='Support Server',
