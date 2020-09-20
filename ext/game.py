@@ -277,7 +277,8 @@ class MindnightGame(PrettyRepr):
 	round_idx: Optional[int] = None
 
 	_bot: Bot = None
-	_timer_task: asyncio.Task = None
+	_lobby_waiting_timeout_task: asyncio.Task = None
+	_active_timer_task: asyncio.Task = None
 	_phase_task: asyncio.Task = None
 	_confirm_team_waiting_task: asyncio.Task = None
 	_last_send_channel_message: discord.Message = None
@@ -303,6 +304,9 @@ class MindnightGame(PrettyRepr):
 
 		self.players.append(GamePlayer(user))
 
+		cancel_task(self._lobby_waiting_timeout_task)
+		self._create_lobby_waiting_timeout_task()
+
 	def remove_player(self, user: discord.User):
 		players2 = []
 		for player in self.players:
@@ -314,6 +318,9 @@ class MindnightGame(PrettyRepr):
 			raise GameError('player not in the game')
 
 		self.players = players2
+
+		cancel_task(self._lobby_waiting_timeout_task)
+		self._create_lobby_waiting_timeout_task()
 
 	def _handle_phase_task_done(self, fut: asyncio.Future):
 		try:
@@ -330,7 +337,8 @@ class MindnightGame(PrettyRepr):
 		self._phase_task.add_done_callback(self._handle_phase_task_done)
 
 	def _cancel_tasks(self):
-		cancel_task(self._timer_task)
+		cancel_task(self._lobby_waiting_timeout_task)
+		cancel_task(self._active_timer_task)
 		cancel_task(self._phase_task)
 		cancel_task(self._confirm_team_waiting_task)
 
@@ -350,6 +358,13 @@ class MindnightGame(PrettyRepr):
 		self._last_send_channel_message = msg
 		return msg
 
+	def _create_lobby_waiting_timeout_task(self):
+		async def run():
+			await asyncio.sleep(15 * 60)
+			await self.end(reason='Lobby closed due to inactivity.')
+		self._lobby_waiting_timeout_task = asyncio.create_task(run())
+		return self._lobby_waiting_timeout_task
+
 	def _start_timer(self, *, time: int, callback: Callable[[int], Any], send_at: List[int]):
 		async def make_coro():
 			nonlocal time, callback, send_at
@@ -368,8 +383,8 @@ class MindnightGame(PrettyRepr):
 
 				i += 1
 
-		self._timer_task = asyncio.create_task(make_coro())
-		return self._timer_task
+		self._active_timer_task = asyncio.create_task(make_coro())
+		return self._active_timer_task
 
 	async def _run_all_check_forbidden(self, tasks: Iterable[Union[asyncio.Task, asyncio.Future]]):
 		done, _ = await wait(tasks, raise_on_exception=False, cancel_pending=False)
@@ -395,7 +410,10 @@ class MindnightGame(PrettyRepr):
 		if len(self.players) < MIN_PLAYER_COUNT:
 			raise GameError(f'must have at least {MIN_PLAYER_COUNT} players to start the game')
 
+
 		try:
+			cancel_task(self._lobby_waiting_timeout_task)
+
 			self.state = GameState.RUNNING
 			self.info = INFO[len(self.players)]
 
@@ -738,6 +756,9 @@ class MindnightGame(PrettyRepr):
 		self._set_phase_task(self.next_round())
 
 	async def end(self, winner: PlayerRole = None, *, reason: str = None):
+		if self.state == GameState.ENDED:
+			return
+
 		self.state = GameState.ENDED
 		self._cancel_tasks()
 
@@ -891,7 +912,7 @@ class MindnightCog(commands.Cog, name='Game'):
 		self.games = dict()
 
 	async def end_all(self, *, reason: str = None):
-		return await asyncio.gather(*map(lambda g: g.end(reason=reason), self.games.values()))
+		return await asyncio.gather(*(g.end(reason=reason) for g in self.games.values() if g.state != GameState.ENDED))
 
 	# @overwrite
 	async def cog_check(self, ctx: Context):
