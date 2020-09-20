@@ -4,7 +4,7 @@
 
 A recreation of [Mindnight](https://store.steampowered.com/app/667870/MINDNIGHT/), a social deduction Steam game based on party games Werewolf and The Resistance, as a Discord bot.
 
-This project is inspired by [Ratismal's UNO Discord bot](https://github.com/Ratismal/UNO) and [Kevlar's MindWatch using the Overwatch Workshop](https://workshop.codes/TJ7R0)
+This project is also inspired by [Ratismal's UNO Discord bot](https://github.com/Ratismal/UNO) and [Kevlar's MindWatch using the Overwatch Workshop](https://workshop.codes/TJ7R0)
 
 
 ## Setup
