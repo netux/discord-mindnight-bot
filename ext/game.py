@@ -964,11 +964,11 @@ class MindnightCog(commands.Cog, name='Game'):
 	async def mindnight__leave(self, ctx: Context):
 		game: MindnightGame = self.games.get(ctx.channel.id, None)
 		if game is None or game.state == GameState.ENDED:
-			await ctx.reply('no Mindnight game to leave.')
+			await ctx.reply('there is no game to leave.')
 			return
 
 		game.remove_player(ctx.author)
-		await ctx.reply('removed from Mindnight game.')
+		await ctx.reply('removed from game.')
 
 		out_of_human_players = len(list(filter(lambda p: not isinstance(p.user, FakeUser), game.players))) == 0
 		if game.state != GameState.LOBBY or out_of_human_players:
@@ -980,7 +980,7 @@ class MindnightCog(commands.Cog, name='Game'):
 	def get_game_maybe(self, ctx: Context) -> MindnightGame:
 		game: MindnightGame = self.games.get(ctx.channel.id, None)
 		if game is None:
-			raise GameError(f'no Mindnight game on this channel. Use `{ctx.prefix}join` to create a game.')
+			raise GameError(f'there is no game on this channel. Use `{ctx.prefix}join` to create a game')
 		return game
 
 	@commands.command(
