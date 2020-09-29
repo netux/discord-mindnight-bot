@@ -35,7 +35,6 @@ class Emotes:
 	hack_button = '❌'
 	confirm_button = '🆗'
 	skip_phase_button = '⏩'
-	random = '🎲'
 
 # NOTE(netux): debug users for testing in the lonelyness
 class FakeUser(discord.Object, PrettyRepr):
@@ -542,17 +541,12 @@ class MindnightGame(PrettyRepr):
 				send_at=(30, 10)
 			)
 
-		await self._send(f'{self.round.proposer.user} took too long to assemble a team.',
-			embed=make_base_embed(
-				title='Select Phase',
-				description='**Picking a random team**'
-			).set_thumbnail(url=emote_url(Emotes.random))
-		)
-		self.round.team.clear()
-		while len(self.round.team) < self.picks_for_current_node:
-			new_member = TeamMember(choice(self.players))
-			self.round.team.add(new_member)
-		await self.confirm_team()
+		if len(self.round.team) < self.picks_for_current_node:
+			await self._send(f'{Emotes.skip_phase_button} {self.round.proposer.user} took too long to assemble a team, skipping them.')
+			self._set_phase_task(self.select_phase(skip=True))
+		else:
+			await self._send(f'{self.round.proposer.user} took too long to confirm. Team automatically confirmed.')
+			await self.confirm_team()
 
 	def _create_confirm_team_task(self, msg: discord.Message):
 		async def make_coro():
@@ -951,7 +945,7 @@ class MindnightCog(commands.Cog, name='Game'):
 		if DEBUG and (player_count := DEBUG.get('player_count', None)) is not None:
 			debug_to_add = player_count - len(game.players)
 			for _ in range(debug_to_add):
-				game.add_player(FakeUser(randint(0, 10000)))
+				game.add_player(FakeUser(randint(0, 9999)))
 			if debug_to_add > 0:
 				await ctx.reply(f'Added {debug_to_add} debug FakeUsers.')
 
