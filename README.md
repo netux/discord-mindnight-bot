@@ -1,4 +1,4 @@
-# Discord Mindnight bot
+# Minecord - Mindnight Discord bot
 
 ![Banner](assets/github/Banner.png)
 
@@ -29,11 +29,13 @@ Their respective images can be found in `assets/`.
 ### Running
 
 To start the bot, simply run
-> `$ pipenv run main.py`
+```shell
+pipenv run main.py
+```
 
 
 ## Disclaimer
 
 The bot is no associated with NoMoon or Mindnight in any way.
 
-All assets are recreations of the original imaginery based on Mindnight's Presskit and gameplay footage.
+All assets are recreations of the original imaginery based on Mindnight's Presskit and gameplay footage, and Discord's Presskit.
