@@ -358,6 +358,9 @@ class MindnightGame(PrettyRepr):
 		return msg
 
 	def _create_lobby_waiting_timeout_task(self):
+		if DEBUG and DEBUG.get('infinite_lobby', False):
+			return
+
 		async def run():
 			await asyncio.sleep(15 * 60)
 			await self.end(reason='Lobby closed due to inactivity.')
