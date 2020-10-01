@@ -1,9 +1,11 @@
 import sys
 import logging
+
+from discord.flags import MemberCacheFlags
 from util import get_nested_or
 from webhook_logging import WebhookLogHandler, WebhookLogRecordFormatter
 
-from discord import AllowedMentions
+from discord import AllowedMentions, Intents
 from pyhocon import ConfigFactory
 from pyparsing import ParseResults
 
@@ -79,7 +81,16 @@ if __name__ == '__main__':
 	bot = Bot(config,
 		command_prefix=bot_config.get('command_prefix', ('mindnight ', 'Mindnight ', 'mindnight', 'Mindnight', 'mn ', 'mn', 'Mn ', 'Mn')),
 		case_insensitive=True,
-		allowed_mentions=AllowedMentions(everyone=False, roles=False)
+		allowed_mentions=AllowedMentions(
+			everyone=False,
+			roles=False
+		),
+		intents=Intents(
+			guilds=True,
+			emojis=True,
+			messages=True,
+			reactions=True
+		)
 	)
 
 	try:
